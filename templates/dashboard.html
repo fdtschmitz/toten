@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Refeitório</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        h1 { text-align: center; color: #2c3e50; }
+        .subtitle { text-align: center; color: #7f8c8d; margin-bottom: 30px; }
+        
+        .dashboard-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex: 1 1 300px; /* Cresce e encolhe, base 300px */
+            min-width: 250px;
+        }
+
+        .card h3 { margin-top: 0; color: #34495e; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
+        
+        .big-number { font-size: 3em; font-weight: bold; color: #3498db; text-align: center; margin: 20px 0; }
+        
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1.1em; }
+        .stat-row.good { color: #27ae60; }
+        .stat-row.bad { color: #c0392b; }
+        .stat-row.neutral { color: #f39c12; }
+
+        .rejeicoes-list { list-style: none; padding: 0; }
+        .rejeicoes-list li {
+            background: #ffeaa7;
+            margin-bottom: 5px;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .btn-export {
+            display: inline-block;
+            background-color: #27ae60;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .btn-export:hover {
+            background-color: #2ecc71;
+        }
+        .header-actions {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Relatório de Satisfação</h1>
+    <div class="subtitle">Dados referentes a hoje: <strong>{{ data_hoje }}</strong></div>
+    <div class="header-actions">
+        <a href="/exportar_csv" class="btn-export">📥 Baixar Relatório Completo (CSV)</a>
+    </div>
+    <div class="dashboard-container">
+        
+        <!-- Cartão 1: Total de Avaliações -->
+        <div class="card">
+            <h3>Total de Crianças que Responderam</h3>
+            <div class="big-number">{{ metricas.total }}</div>
+        </div>
+
+        <!-- Cartão 2: Aceitação Geral (Q1) -->
+        <div class="card">
+            <h3>O almoço estava gostoso?</h3>
+            <div class="stat-row good">
+                <span>🙂 Gostaram:</span>
+                <strong>{{ metricas.q1_gostei }}</strong>
+            </div>
+            <div class="stat-row bad">
+                <span>😡 Não gostaram:</span>
+                <strong>{{ metricas.q1_nao_gostei }}</strong>
+            </div>
+        </div>
+
+        <!-- Cartão 3: Desperdício / Consumo (Q4) -->
+        <div class="card">
+            <h3>Quanto conseguiram comer?</h3>
+            <div class="stat-row good">
+                <span>🥰 Comeram tudo:</span>
+                <strong>{{ metricas.q4_comi_tudo }}</strong>
+            </div>
+            <div class="stat-row neutral">
+                <span>🙁 Comeram pouco:</span>
+                <strong>{{ metricas.q4_comi_pouco }}</strong>
+            </div>
+            <div class="stat-row bad">
+                <span>😣 Não comeram:</span>
+                <strong>{{ metricas.q4_nao_comi }}</strong>
+            </div>
+        </div>
+
+        <!-- Cartão 4: Preparações Rejeitadas (Q6) -->
+        <div class="card" style="flex-basis: 100%;">
+            <h3>O que não gostaram hoje?</h3>
+            {% if metricas.rejeicoes %}
+                <ul class="rejeicoes-list">
+                    {% for item, quantidade in metricas.rejeicoes.items() %}
+                        <li>
+                            <span style="text-transform: capitalize;">{{ item }}</span>
+                            <strong>{{ quantidade }} voto(s)</strong>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p style="text-align: center; color: #7f8c8d; font-style: italic;">
+                    Nenhuma preparação foi rejeitada hoje! 🎉
+                </p>
+            {% endif %}
+        </div>
+
+    </div>
+
+</body>
+</html>
