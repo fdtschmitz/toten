@@ -4,17 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Refeitório</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <style>
         body { font-family: 'Arial', sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
         h1 { text-align: center; color: #2c3e50; }
         .subtitle { text-align: center; color: #7f8c8d; margin-bottom: 30px; }
-        
+
         .dashboard-container {
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
             justify-content: center;
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 0 auto;
         }
 
@@ -23,18 +24,21 @@
             border-radius: 10px;
             padding: 20px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            flex: 1 1 300px; /* Cresce e encolhe, base 300px */
-            min-width: 250px;
+            flex: 1 1 260px; /* Cresce e encolhe, base 260px */
+            min-width: 240px;
+            max-width: 280px;
         }
 
-        .card h3 { margin-top: 0; color: #34495e; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
-        
+        .card h3 { margin-top: 0; color: #34495e; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; font-size: 1.05em; text-align: center; }
+
         .big-number { font-size: 3em; font-weight: bold; color: #3498db; text-align: center; margin: 20px 0; }
-        
-        .stat-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1.1em; }
-        .stat-row.good { color: #27ae60; }
-        .stat-row.bad { color: #c0392b; }
-        .stat-row.neutral { color: #f39c12; }
+
+        .chart-wrap { position: relative; height: 200px; margin: 10px auto; }
+        .chart-empty { text-align: center; color: #7f8c8d; font-style: italic; padding: 40px 0; }
+
+        .chart-legend { display: flex; justify-content: center; gap: 16px; margin-top: 10px; font-size: 0.85em; }
+        .chart-legend span { display: flex; align-items: center; gap: 6px; }
+        .chart-legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
         .rejeicoes-list { list-style: none; padding: 0; }
         .rejeicoes-list li {
@@ -75,49 +79,43 @@
         <a href="/exportar_csv" class="btn-export">📥 Baixar Relatório Completo (CSV)</a>
     </div>
     <div class="dashboard-container">
-        
-        <!-- Cartão 1: Total de Avaliações -->
+
+        <!-- Cartão: Total de Avaliações -->
         <div class="card">
             <h3>Total de Crianças que Responderam</h3>
             <div class="big-number">{{ metricas.total }}</div>
         </div>
 
-        <!-- Cartão 2: Aceitação Geral (Q1) -->
+        <!-- Cartão: Aceitação Geral (Q1) -->
         <div class="card">
             <h3>O almoço estava gostoso?</h3>
-            <div class="stat-row good">
-                <span>🙂 Gostaram:</span>
-                <strong>{{ metricas.q1_gostei }}</strong>
-            </div>
-            <div class="stat-row bad">
-                <span>😡 Não gostaram:</span>
-                <strong>{{ metricas.q1_nao_gostei }}</strong>
-            </div>
+            <div class="chart-wrap"><canvas id="chartQ1"></canvas></div>
         </div>
 
-        <!-- Cartão 3: Desperdício / Consumo (Q4) -->
+        <!-- Cartão: Temperatura (Q2) -->
+        <div class="card">
+            <h3>A temperatura estava boa?</h3>
+            <div class="chart-wrap"><canvas id="chartQ2"></canvas></div>
+        </div>
+
+        <!-- Cartão: Carne (Q3) -->
+        <div class="card">
+            <h3>Gostou da carne hoje?</h3>
+            <div class="chart-wrap"><canvas id="chartQ3"></canvas></div>
+        </div>
+
+        <!-- Cartão: Consumo (Q4) -->
         <div class="card">
             <h3>Quanto conseguiram comer?</h3>
-            <div class="stat-row good">
-                <span>🥰 Comeram tudo:</span>
-                <strong>{{ metricas.q4_comi_tudo }}</strong>
-            </div>
-            <div class="stat-row neutral">
-                <span>🙁 Comeram pouco:</span>
-                <strong>{{ metricas.q4_comi_pouco }}</strong>
-            </div>
-            <div class="stat-row bad">
-                <span>😣 Não comeram:</span>
-                <strong>{{ metricas.q4_nao_comi }}</strong>
-            </div>
+            <div class="chart-wrap"><canvas id="chartQ4"></canvas></div>
         </div>
 
-        <!-- Cartão 4: Preparações Rejeitadas (Q6) -->
-        <div class="card" style="flex-basis: 100%;">
-            <h3>O que não gostaram hoje?</h3>
+        <!-- Cartão: Preparações Rejeitadas (Q6) -->
+        <div class="card" style="flex-basis: 100%; max-width: 100%;">
+            <h3>Rejeição por preparação do dia</h3>
             {% if metricas.rejeicoes %}
                 <ul class="rejeicoes-list">
-                    {% for item, quantidade in metricas.rejeicoes.items() %}
+                    {% for item, quantidade in metricas.rejeicoes.items()|sort(attribute='1', reverse=True) %}
                         <li>
                             <span style="text-transform: capitalize;">{{ item }}</span>
                             <strong>{{ quantidade }} voto(s)</strong>
@@ -132,6 +130,64 @@
         </div>
 
     </div>
+
+    <script>
+        // Dados vindos do Flask/Jinja
+        const dados = {
+            q1: { labels: ["Gostei", "Não gostei"], valores: [{{ metricas.q1_gostei }}, {{ metricas.q1_nao_gostei }}], cores: ["#27ae60", "#c0392b"] },
+            q2: { labels: ["Gostei", "Não gostei"], valores: [{{ metricas.q2_gostei }}, {{ metricas.q2_nao_gostei }}], cores: ["#27ae60", "#c0392b"] },
+            q3: { labels: ["Gostei", "Não gostei"], valores: [{{ metricas.q3_gostei }}, {{ metricas.q3_nao_gostei }}], cores: ["#27ae60", "#c0392b"] },
+            q4: { labels: ["Comeram tudo", "Comeram pouco", "Não comeram"], valores: [{{ metricas.q4_comi_tudo }}, {{ metricas.q4_comi_pouco }}, {{ metricas.q4_nao_comi }}], cores: ["#27ae60", "#f39c12", "#c0392b"] }
+        };
+
+        function montarGrafico(canvasId, config) {
+            const total = config.valores.reduce((a, b) => a + b, 0);
+            const canvas = document.getElementById(canvasId);
+
+            if (total === 0) {
+                // Sem respostas ainda: mostra mensagem no lugar do gráfico
+                canvas.replaceWith(Object.assign(document.createElement('div'), {
+                    className: 'chart-empty',
+                    textContent: 'Ainda sem respostas hoje.'
+                }));
+                return;
+            }
+
+            new Chart(canvas, {
+                type: 'pie',
+                data: {
+                    labels: config.labels,
+                    datasets: [{
+                        data: config.valores,
+                        backgroundColor: config.cores,
+                        borderColor: '#ffffff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const valor = ctx.parsed;
+                                    const pct = total > 0 ? ((valor / total) * 100).toFixed(0) : 0;
+                                    return ` ${ctx.label}: ${valor} (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        montarGrafico('chartQ1', dados.q1);
+        montarGrafico('chartQ2', dados.q2);
+        montarGrafico('chartQ3', dados.q3);
+        montarGrafico('chartQ4', dados.q4);
+    </script>
 
 </body>
 </html>
