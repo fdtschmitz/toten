@@ -1,4 +1,6 @@
 from flask import Flask, request, jsonify, render_template, Response # type: ignore
+from waitress import serve
+import socket
 import sqlite3
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -200,6 +202,15 @@ def exportar_csv():
         headers={"Content-Disposition": "attachment;filename=relatorio_pesquisa.csv"}
     )
 
+
 if __name__ == '__main__':
     init_db()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    
+    # Captura e exibe o IP local no terminal para facilitar o acesso no iPad
+    hostname = socket.gethostname()
+    ip_local = socket.gethostbyname(hostname)
+    print(f"✅ Servidor WSGI ativo!")
+    print(f"📱 Acesse no iPad através do link: http://{ip_local}:5000")
+    
+    # Inicia o servidor com 4 threads para lidar com múltiplas requisições
+    serve(app, host='0.0.0.0', port=5000, threads=2)
