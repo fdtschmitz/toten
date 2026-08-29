@@ -1,6 +1,6 @@
-from flask import Flask, request, jsonify, render_template, Response
+from flask import Flask, request, jsonify, render_template, Response # type: ignore
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 import io
 import csv
@@ -81,61 +81,91 @@ def salvar_pesquisa():
 
 @app.route('/dashboard')
 def dashboard():
-    """Rota para visualizar os relatórios diários."""
-    # Pega a data de hoje no formato YYYY-MM-DD
-    hoje = datetime.now().strftime('%Y-%m-%d')
+    """Rota para visualizar os relatórios com filtros de data."""
+    # Captura os parâmetros da URL
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    view = request.args.get('view')
+
+    hoje_dt = datetime.now()
+    hoje_str = hoje_dt.strftime('%Y-%m-%d')
     
+    # Lógica de definição das datas com base nos botões ou inputs
+    if view == 'weekly':
+        start_dt = hoje_dt - timedelta(days=7)
+        start_date = start_dt.strftime('%Y-%m-%d')
+        end_date = hoje_str
+        periodo_str = f"Últimos 7 dias ({start_date} até {end_date})"
+    elif start_date and end_date:
+        periodo_str = f"Período: {start_date} até {end_date}"
+    elif start_date: # Se o usuário colocar apenas a data de início (dia específico)
+        end_date = start_date
+        periodo_str = f"Data específica: {start_date}"
+    else:
+        # Padrão: visão diária de hoje
+        start_date = hoje_str
+        end_date = hoje_str
+        periodo_str = f"Hoje ({hoje_str})"
+
+    # Ajusta o horário para pegar o dia inteiro
+    start_query = f"{start_date} 00:00:00"
+    end_query = f"{end_date} 23:59:59"
+
     conn = sqlite3.connect(DB_NAME)
-    # Permite acessar as colunas pelo nome (ex: linha['q1'])
     conn.row_factory = sqlite3.Row 
     cursor = conn.cursor()
     
-    # Busca apenas as respostas de hoje usando LIKE
-    cursor.execute("SELECT * FROM respostas WHERE data_hora LIKE ?", (f"{hoje}%",))
-    respostas_hoje = cursor.fetchall()
+    # Busca com base no intervalo de datas
+    cursor.execute(
+        "SELECT * FROM respostas WHERE data_hora >= ? AND data_hora <= ?", 
+        (start_query, end_query)
+    )
+    respostas_filtradas = cursor.fetchall()
     conn.close()
     
     # Processamento dos dados para o dashboard
-    total = len(respostas_hoje)
+    total = len(respostas_filtradas)
     
     metricas = {
         'total': total,
-        'q1_gostei': sum(1 for r in respostas_hoje if r['q1'] == 'gostei'),
-        'q1_nao_gostei': sum(1 for r in respostas_hoje if r['q1'] == 'nao_gostei'),
+        'q1_gostei': sum(1 for r in respostas_filtradas if r['q1'] == 'gostei'),
+        'q1_nao_gostei': sum(1 for r in respostas_filtradas if r['q1'] == 'nao_gostei'),
 
-        'q2_gostei': sum(1 for r in respostas_hoje if r['q2'] == 'gostei'),
-        'q2_nao_gostei': sum(1 for r in respostas_hoje if r['q2'] == 'nao_gostei'),
+        'q2_gostei': sum(1 for r in respostas_filtradas if r['q2'] == 'gostei'),
+        'q2_nao_gostei': sum(1 for r in respostas_filtradas if r['q2'] == 'nao_gostei'),
 
-        'q3_gostei': sum(1 for r in respostas_hoje if r['q3'] == 'gostei'),
-        'q3_nao_gostei': sum(1 for r in respostas_hoje if r['q3'] == 'nao_gostei'),
+        'q3_gostei': sum(1 for r in respostas_filtradas if r['q3'] == 'gostei'),
+        'q3_nao_gostei': sum(1 for r in respostas_filtradas if r['q3'] == 'nao_gostei'),
         
-        'q4_comi_tudo': sum(1 for r in respostas_hoje if r['q4'] == 'comi_tudo'),
-        'q4_comi_pouco': sum(1 for r in respostas_hoje if r['q4'] == 'comi_pouco'),
-        'q4_nao_comi': sum(1 for r in respostas_hoje if r['q4'] == 'nao_comi'),
+        'q4_comi_tudo': sum(1 for r in respostas_filtradas if r['q4'] == 'comi_tudo'),
+        'q4_comi_pouco': sum(1 for r in respostas_filtradas if r['q4'] == 'comi_pouco'),
+        'q4_nao_comi': sum(1 for r in respostas_filtradas if r['q4'] == 'nao_comi'),
         
-        # Contagem das preparações rejeitadas (ignorando quando a resposta for 'nenhuma' ou vazia)
         'rejeicoes': {}
     }
 
     contagem_rejeicoes = defaultdict(int)
 
-    for opcao in opcoes_do_dia:
-        contagem_rejeicoes[opcao] = 0
-
-    for r in respostas_hoje:
+    for r in respostas_filtradas:
         item_rejeitado = r['q6']
-        if item_rejeitado and item_rejeitado != 'nenhuma':
-            # Separa "Frango, Salada" em ["Frango", "Salada"]
+        # Filtra valores nulos, "nenhuma" ou "Nada_marcado"
+        if item_rejeitado and item_rejeitado.lower() not in ['nenhuma', 'nada_marcado']:
             itens = [item.strip() for item in item_rejeitado.split(',')]
             for item in itens:
-                if item:
+                if item and item.lower() != 'nada_marcado':
                     contagem_rejeicoes[item] += 1
 
     metricas['rejeicoes'] = {
         item: qtd for item, qtd in contagem_rejeicoes.items() if qtd > 0
     }
 
-    return render_template('dashboard.html', metricas=metricas, data_hoje=datetime.now().strftime('%d/%m/%Y'))
+    return render_template(
+        'dashboard.html', 
+        metricas=metricas, 
+        periodo_str=periodo_str, 
+        start_date=start_date, 
+        end_date=end_date
+    )
 
 @app.route('/exportar_csv')
 def exportar_csv():
