@@ -6,29 +6,52 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Pesquisa de Satisfação</title>
+    
+    <!-- Importando a fonte Montserrat (Medium 500 e Extrabold 800) -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;800&display=swap" rel="stylesheet">
+
     <style>
         body { 
-            font-family: 'Comic Sans MS', sans-serif; 
+            font-family: 'Montserrat', sans-serif; 
             text-align: center; 
             background-color: #f0f8ff; 
             margin: 0; 
             padding: 20px;
-            padding-bottom: 80px; /* Espaço para a barra de progresso não sobrepor nada */
+            padding-bottom: 80px; 
             touch-action: manipulation; 
             user-select: none; 
+            /* Para garantir que o artefato fique no fundo, sem scroll oculto */
+            overflow-x: hidden;
         }
         
-        h1 { color: #333; margin-top: 3%; font-size: 2.5em; }
+        /* Título */
+        h1 { 
+            color: #ec7803; 
+            font-weight: 800; /* Extrabold */
+            margin-top: 3%; 
+            font-size: 2.5em; 
+        }
         
-        .question { display: none; margin-top: 5%; font-size: 2em; }
+        /* Perguntas */
+        .question { display: none; margin-top: 5%; }
         .active { display: block; }
+        
+        .question p {
+            font-weight: 500; /* Medium */
+            font-size: 25px; /* Tamanho 25 */
+            letter-spacing: 0.5px; /* Kerning visual */
+            color: #333;
+        }
         
         .options-container { 
             display: flex; 
             justify-content: center; 
             flex-wrap: wrap; 
-            gap: 20px; 
-            margin-top: 30px; 
+            gap: 10px; /* Reduzido de 20px para 10px */
+            margin-top: 15px; /* Reduzido de 30px para 15px */
+            max-width: 550px; /* Mantém o grid centralizado e compacto como na imagem */
+            margin-left: auto;
+            margin-right: auto;
         }
         
         .emoji-btn { 
@@ -43,49 +66,68 @@
             border-radius: 30px; 
             box-shadow: 0 6px 10px rgba(0,0,0,0.1); 
             cursor: pointer; 
-            transition: transform 0.2s; 
+            transition: transform 0.2s, background-color 0.2s, border 0.2s; 
+            border: 3px solid transparent; /* Evita pulo de tamanho na seleção */ 
         }
         
         .emoji-btn:active { transform: scale(0.9); background: #e0f0ff; }
+
+        /* Nova classe para marcar a resposta visualizada (Q1 a Q5) */
+        .emoji-btn.selected {
+            background-color: #ffeaa7; 
+            transform: scale(0.95);
+            border: 3px solid #ec7803; 
+        }
         
         .emoji { font-size: 5em; }
-        .label { font-size: 0.35em; font-weight: bold; margin-top: 15px; color: #555; }
+        
+        /* Texto abaixo dos Emojis */
+        .label, .text-label { 
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 500; /* Medium */
+            font-size: 18px; /* Tamanho 18 */
+            margin-top: 15px; 
+            color: #555; 
+        }
         
         #q6 .emoji-btn { width: 140px; height: 140px; border-radius: 20px; }
         #q6 .emoji { font-size: 3.5em; }
-        #q6 .label { font-size: 0.4em; }
         
-        #thank-you { display: none; margin-top: 25%; font-size: 4em; color: #4CAF50; }
+        #thank-you { display: none; margin-top: 25%; font-size: 4em; color: #69b42d; font-weight: 800; }
 
-        /* Estilos da Barra de Progresso */
+        /* Estilos da Barra de Progresso (Dots) */
         #progress-bar {
             position: fixed;
-            bottom: 40px;
+            bottom: 60px;
             left: 0;
             width: 100%;
             display: flex;
             justify-content: center;
             gap: 20px;
+            z-index: 5;
         }
 
         .dot {
             width: 25px;
             height: 25px;
-            background-color: #dcdcdc;
+            background-color: #dcdcdc; /* Cinza para os futuros */
             border-radius: 50%;
             transition: background-color 0.4s, transform 0.4s;
         }
 
         .dot.active-dot {
-            background-color: #4CAF50;
+            background-color: #ec7803; /* Cor principal solicitada */
             transform: scale(1.4);
-            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+            box-shadow: 0 0 10px rgba(236, 120, 3, 0.5);
+            cursor: pointer;
         }
 
         .dot.completed-dot {
-            background-color: #8bc34a;
+            background-color: rgba(236, 120, 3, 0.3); /* Cor principal com 30% de Alpha */
+            cursor: pointer;
         }
 
+        /* Elementos da Q6 */
         article {
             position: relative;
             width: 140px;
@@ -123,54 +165,93 @@
         input[type=checkbox]:checked ~ div {
             background-color: #50bcf2;
         }
-        /* Estilo das opções de múltipla escolha */
+        
         .option1 {
             cursor: pointer;
-            margin: 10px;
+            margin: 5px;
         }
 
         .option1 input[type="checkbox"] {
-            display: none; /* Esconde a caixinha padrão do checkbox */
+            display: none;
         }
+        
         .checkbox-content {
-            display: inline-block;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             width: 140px;
             height: 140px;
             background: white;
             border-radius: 20px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            padding: 15px;
+            padding: 5px;
             transition: transform 0.2s, background-color 0.2s;
         }
 
-        /* Quando o checkbox estiver marcado, muda a cor de fundo do item */
         .option1 input[type="checkbox"]:checked + .checkbox-content {
-            background-color: #ffeaa7; /* Um amarelo suave indicando seleção */
+            background-color: #ffeaa7; 
             transform: scale(0.95);
             border: 3px solid #f39c12;
         }
 
         /* Botão de finalizar pesquisa */
         .submit-btn {
-            margin-top: 30px;
+            margin-top: 15px;
             padding: 15px 40px;
             font-size: 1.5em;
-            font-family: 'Comic Sans MS', sans-serif;
-            background-color: #4CAF50;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800; /* Extrabold */
+            background-color: #69b42d; /* Verde solicitado */
             color: white;
             border: none;
-            border-radius: 30px;
+            border-radius: 9999px; /* Arredondado ao máximo */
             box-shadow: 0 6px 10px rgba(0,0,0,0.1);
             cursor: pointer;
         }
         .submit-btn:active {
             transform: scale(0.95);
         }
+
+        /* Artefato Retangular na Base (Somente metade visível) */
+        .base-artifact {
+            position: fixed;
+            bottom: -135px; /* Esconde 150px da altura total de 300px */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 450px;
+            height: 150px;
+            background-color: #ec7803; /* Fundo branco translúcido sutil */
+            border-radius: 30px; /* Bordas arredondadas */
+            z-index: -1; /* Fica atrás de todo o conteúdo */
+        }
+
+        /* Logo da Escola */
+        .school-logo {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            height: 70px; /* Ajuste conforme a proporção da sua imagem */
+            width: auto;
+            z-index: 10;
+        }
+
+        .linha-divisoria {
+            border: none; /* Remove o estilo 3D padrão dos navegadores */
+            border-top: 2px solid rgba(0, 0, 0, 0.06); /* Preto com apenas 6% de opacidade */
+            width: 85%; /* Define que a linha não encosta nas bordas da tela */
+            max-width: 900px; /* Limite máximo para telas grandes */
+            margin: 30px auto 10px auto; /* Centraliza e ajusta o espaço acima e abaixo */
+        }
+
     </style>
 </head>
 <body>
 
-    <h1>Conta pra gente: como foi seu almoço?</h1>
+    <h1>Conta pra gente:<br> como foi seu almoço?</h1>
+
+    <hr class="linha-divisoria">
 
     <div id="survey-container">
         
@@ -178,8 +259,9 @@
         <div class="question active" id="q1">
             <p>1. O almoço estava gostoso?</p>
             <div class="options-container">
-                <button class="emoji-btn" onclick="nextQuestion(1, 'gostei')"><span class="emoji">🙂</span><span class="label">Gostei</span></button>
-                <button class="emoji-btn" onclick="nextQuestion(1, 'nao_gostei')"><span class="emoji">😡</span><span class="label">Não gostei</span></button>
+                <!-- Data-value adicionado -->
+                <button class="emoji-btn" data-value="gostei" onclick="nextQuestion(1, 'gostei')"><span class="emoji">🙂</span><span class="label">Gostei</span></button>
+                <button class="emoji-btn" data-value="nao_gostei" onclick="nextQuestion(1, 'nao_gostei')"><span class="emoji">😡</span><span class="label">Não gostei</span></button>
             </div>
         </div>
 
@@ -187,8 +269,8 @@
         <div class="question" id="q2">
             <p>2. A comida estava em uma temperatura boa para você?</p>
             <div class="options-container">
-                <button class="emoji-btn" onclick="nextQuestion(2, 'gostei')"><span class="emoji">🙂</span><span class="label">Gostei</span></button>
-                <button class="emoji-btn" onclick="nextQuestion(2, 'nao_gostei')"><span class="emoji">😡</span><span class="label">Não gostei</span></button>
+                <button class="emoji-btn" data-value="gostei" onclick="nextQuestion(2, 'gostei')"><span class="emoji">🙂</span><span class="label">Gostei</span></button>
+                <button class="emoji-btn" data-value="nao_gostei" onclick="nextQuestion(2, 'nao_gostei')"><span class="emoji">😡</span><span class="label">Não gostei</span></button>
             </div>
         </div>
 
@@ -196,8 +278,8 @@
         <div class="question" id="q3">
             <p>3. Você gostou da carne hoje?</p>
             <div class="options-container">
-                <button class="emoji-btn" onclick="nextQuestion(3, 'gostei')"><span class="emoji">🙂</span><span class="label">Gostei</span></button>
-                <button class="emoji-btn" onclick="nextQuestion(3, 'nao_gostei')"><span class="emoji">😡</span><span class="label">Não gostei</span></button>
+                <button class="emoji-btn" data-value="gostei" onclick="nextQuestion(3, 'gostei')"><span class="emoji">🙂</span><span class="label">Gostei</span></button>
+                <button class="emoji-btn" data-value="nao_gostei" onclick="nextQuestion(3, 'nao_gostei')"><span class="emoji">😡</span><span class="label">Não gostei</span></button>
             </div>
         </div>
 
@@ -205,9 +287,9 @@
         <div class="question" id="q4">
             <p>4. Quanto você conseguiu comer?</p>
             <div class="options-container">
-                <button class="emoji-btn" onclick="nextQuestion(4, 'comi_tudo')"><span class="emoji">🥰</span><span class="label">Comi tudo</span></button>
-                <button class="emoji-btn" onclick="nextQuestion(4, 'comi_pouco')"><span class="emoji">🙁</span><span class="label">Comi pouco</span></button>
-                <button class="emoji-btn" onclick="nextQuestion(4, 'nao_comi')"><span class="emoji">😣</span><span class="label">Não comi</span></button>
+                <button class="emoji-btn" data-value="comi_tudo" onclick="nextQuestion(4, 'comi_tudo')"><span class="emoji">🥰</span><span class="label">Comi tudo</span></button>
+                <button class="emoji-btn" data-value="comi_pouco" onclick="nextQuestion(4, 'comi_pouco')"><span class="emoji">🙁</span><span class="label">Comi pouco</span></button>
+                <button class="emoji-btn" data-value="nao_comi" onclick="nextQuestion(4, 'nao_comi')"><span class="emoji">😣</span><span class="label">Não comi</span></button>
             </div>
         </div>
 
@@ -215,8 +297,8 @@
         <div class="question" id="q5">
             <p>5. Teve alguma preparação que você não gostou hoje?</p>
             <div class="options-container">
-                <button class="emoji-btn" onclick="nextQuestion(5, 'gostei_de_todas')"><span class="emoji">🙂</span><span class="label">Gostei de todas</span></button>
-                <button class="emoji-btn" onclick="nextQuestion(5, 'nao_gostei_alguma')"><span class="emoji">😡</span><span class="label">Não gostei de alguma</span></button>
+                <button class="emoji-btn" data-value="gostei_de_todas" onclick="nextQuestion(5, 'gostei_de_todas')"><span class="emoji">🙂</span><span class="label">Gostei de todas</span></button>
+                <button class="emoji-btn" data-value="nao_gostei_alguma" onclick="nextQuestion(5, 'nao_gostei_alguma')"><span class="emoji">😡</span><span class="label">Não gostei de alguma</span></button>
             </div>
         </div>
 
@@ -224,44 +306,42 @@
         <div class="question" id="q6">
             <p>6. Você quer nos dizer o que não gostou?</p>
             <div class="options-container">
-                <!-- O uso do <label> permite que tocar no emoji ou no texto marque o checkbox -->
                 <label class="option1">
                     <input type="checkbox" class="q6-checkbox" value="arroz">
-                    <div class="checkbox-content"><span style="font-size: 2.5em;">🍚</span><br><span style="font-size: 0.6em;">Arroz</span></div>
+                    <div class="checkbox-content"><span style="font-size: 4em;">🍚</span><span class="text-label">Arroz</span></div>
                 </label>
                 
                 <label class="option1">
                     <input type="checkbox" class="q6-checkbox" value="carne">
-                    <div class="checkbox-content"><span style="font-size: 2.5em;">🥩</span><br><span style="font-size: 0.6em;">Carne</span></div>
+                    <div class="checkbox-content"><span style="font-size: 4em;">🥩</span><span class="text-label">Carne</span></div>
                 </label>
                 
                 <label class="option1">
                     <input type="checkbox" class="q6-checkbox" value="frango">
-                    <div class="checkbox-content"><span style="font-size: 2.5em;">🍗</span><br><span style="font-size: 0.6em;">Frango</span></div>
+                    <div class="checkbox-content"><span style="font-size: 4em;">🍗</span><span class="text-label">Frango</span></div>
                 </label>
                 
                 <label class="option1">
                     <input type="checkbox" class="q6-checkbox" value="peixe">
-                    <div class="checkbox-content"><span style="font-size: 2.5em;">🐟</span><br><span style="font-size: 0.6em;">Peixe</span></div>
+                    <div class="checkbox-content"><span style="font-size: 4em;">🐟</span><span class="text-label">Peixe</span></div>
                 </label>
                 
                 <label class="option1">
                     <input type="checkbox" class="q6-checkbox" value="feijao">
-                    <div class="checkbox-content"><span style="font-size: 2.5em;">🫘</span><br><span style="font-size: 0.6em;">Feijão</span></div>
+                    <div class="checkbox-content"><span style="font-size: 4em;">🫘</span><span class="text-label">Feijão</span></div>
                 </label>
                 
                 <label class="option1">
                     <input type="checkbox" class="q6-checkbox" value="salada">
-                    <div class="checkbox-content"><span style="font-size: 2.5em;">🥗</span><br><span style="font-size: 0.6em;">Salada</span></div>
+                    <div class="checkbox-content"><span style="font-size: 4em;">🥗</span><span class="text-label">Salada</span></div>
                 </label>
                 
                 <label class="option1">
                     <input type="checkbox" class="q6-checkbox" value="macarrao">
-                    <div class="checkbox-content"><span style="font-size: 2.5em;">🍝</span><br><span style="font-size: 0.6em;">Macarrão</span></div>
+                    <div class="checkbox-content"><span style="font-size: 4em;">🍝</span><span class="text-label">Macarrão</span></div>
                 </label>
             </div>
             
-            <!-- Botão grande para finalizar a etapa -->
             <button type="button" class="submit-btn" onclick="coletarEscolhasQ6()">Finalizar Pesquisa</button>
         </div>
         
@@ -269,13 +349,18 @@
 
     <!-- Indicador de Progresso (Timeline) -->
     <div id="progress-bar">
-        <div class="dot active-dot" id="dot-1"></div>
-        <div class="dot" id="dot-2"></div>
-        <div class="dot" id="dot-3"></div>
-        <div class="dot" id="dot-4"></div>
-        <div class="dot" id="dot-5"></div>
-        <div class="dot" id="dot-6"></div>
+        <div class="dot active-dot" id="dot-1" onclick="jumpTo(1)"></div>
+        <div class="dot" id="dot-2" onclick="jumpTo(2)"></div>
+        <div class="dot" id="dot-3" onclick="jumpTo(3)"></div>
+        <div class="dot" id="dot-4" onclick="jumpTo(4)"></div>
+        <div class="dot" id="dot-5" onclick="jumpTo(5)"></div>
+        <div class="dot" id="dot-6" onclick="jumpTo(6)"></div>
     </div>
+
+    <!-- Elementos decorativos (Artefato e Logo) -->
+    <div class="base-artifact"></div>
+    <!-- Substitua 'seu_logo_aqui.png' pelo caminho real do logo da escola -->
+    <img src="/static/img/logo.png" alt="Logo da Escola" class="school-logo">
 
     <div id="thank-you">
         <p>Obrigado! 🥰</p>
@@ -283,28 +368,62 @@
 
     <script>
         let respostas = {};
-        let multiplaEscolha = [false, false, false, false, false, false];
-        // 0 - arroz ; 1 - carne ; 2 - frango ; 3 - peixe ; 4 - feijão ; 5 - salada ; 6 - macarrão
+        let currentActiveQ = 1;
+        let highestQuestionReached = 1;
 
-        function escolhas(opcao) {
-            multiplaEscolha[opcao] = !multiplaEscolha[opcao]; // alterna entre True e False
+        function atualizarVisualizacao(q) {
+            if (q < 6) {
+                let respostaSalva = respostas['q' + q];
+                let botoes = document.querySelectorAll('#q' + q + ' .emoji-btn');
+                
+                botoes.forEach(b => b.classList.remove('selected'));
+                
+                if (respostaSalva) {
+                    let botaoSelecionado = document.querySelector('#q' + q + ' .emoji-btn[data-value="' + respostaSalva + '"]');
+                    if (botaoSelecionado) {
+                        botaoSelecionado.classList.add('selected');
+                    }
+                }
+            }
         }
-        
+
+        function jumpTo(targetQ) {
+            // Ignora o clique se tentar pular para uma pergunta que ainda não alcançou
+            if (targetQ > highestQuestionReached) return;
+
+            // Esconde a pergunta atual
+            document.getElementById('q' + currentActiveQ).classList.remove('active');
+            
+            // Recalcula o status visual de todas as bolinhas
+            for (let i = 1; i <= 6; i++) {
+                let dot = document.getElementById('dot-' + i);
+                if (!dot) continue;
+                
+                dot.classList.remove('active-dot', 'completed-dot');
+                
+                if (i === targetQ) {
+                    dot.classList.add('active-dot'); // A bolinha clicada vira ativa
+                } else if (i < highestQuestionReached || respostas['q' + i]) {
+                    dot.classList.add('completed-dot'); // Bolinhas anteriores ficam completadas
+                }
+            }
+
+            // Atualiza visualmente se houver resposta salva antes de mostrar a tela
+            atualizarVisualizacao(targetQ);
+
+            // Mostra a nova pergunta escolhida
+            document.getElementById('q' + targetQ).classList.add('active');
+            currentActiveQ = targetQ; // Atualiza a variável de controle
+        }
 
         function nextQuestion(currentQ, resposta) {
+            // Salva a resposta
             respostas['q' + currentQ] = resposta;
+
+            // Grava a marcação visual imediatamente
+            atualizarVisualizacao(currentQ);
             
-            // Oculta a pergunta atual
-            document.getElementById('q' + currentQ).classList.remove('active');
-            
-            // Atualiza a timeline: marca a atual como concluída
-            let currentDot = document.getElementById('dot-' + currentQ);
-            if (currentDot) {
-                currentDot.classList.remove('active-dot');
-                currentDot.classList.add('completed-dot');
-            }
-            
-            // Lógica condicional da Pergunta 5
+            // Lógica condicional da Pergunta 5 (Pula direto para o fim)
             if (currentQ === 5 && resposta === 'gostei_de_todas') {
                 respostas['q6'] = 'nenhuma'; 
                 enviarDados();
@@ -312,43 +431,39 @@
             }
             
             let nextQ = currentQ + 1;
-            let nextElement = document.getElementById('q' + nextQ);
             
-            if (nextElement) {
-                // Mostra a próxima pergunta
-                nextElement.classList.add('active');
-                
-                // Atualiza a timeline: marca a próxima como ativa
-                let nextDot = document.getElementById('dot-' + nextQ);
-                if (nextDot) {
-                    nextDot.classList.add('active-dot');
-                }
-            } else {
+            // Se não houver próxima pergunta, finaliza
+            if (!document.getElementById('q' + nextQ)) {
                 enviarDados();
+                return;
             }
+
+            // Atualiza a pergunta mais distante alcançada para liberar a bolinha correspondente
+            if (nextQ > highestQuestionReached) {
+                highestQuestionReached = nextQ;
+            }
+            
+            // Usa a função de pular para avançar para a próxima tela
+            jumpTo(nextQ);
         }
 
         function coletarEscolhasQ6() {
-            // Pega todos os checkboxes que pertencem à classe q6-checkbox E que estão marcados
             let checkboxes = document.querySelectorAll('.q6-checkbox:checked');
             let itensSelecionados = [];
             
-            // Adiciona o valor (ex: 'arroz', 'carne') de cada checkbox marcado na lista
             checkboxes.forEach(function(checkbox) {
                 itensSelecionados.push(checkbox.value);
             });
             
-            // Junta a lista em um único texto separado por vírgulas. 
-            // Exemplo: se marcar arroz e feijão, vira a string "arroz, feijao"
             let respostaFinal = itensSelecionados.length > 0 ? itensSelecionados.join(', ') : 'nada_marcado';
-            
-            // Envia a string consolidada para a função nextQuestion existente
             nextQuestion(6, respostaFinal);
         }
 
         function enviarDados() {
             document.querySelector('h1').style.display = 'none';
-            document.getElementById('progress-bar').style.display = 'none'; // Esconde a timeline no final
+            document.querySelector('.linha-divisoria').style.display = 'none';
+            document.getElementById('progress-bar').style.display = 'none';
+            document.getElementById('survey-container').style.display = 'none'; 
             document.getElementById('thank-you').style.display = 'block';
             
             fetch('/api/salvar_pesquisa', {
