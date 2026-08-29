@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, render_template, Response
 import sqlite3
 from datetime import datetime
+from collections import defaultdict
 import io
 import csv
 import os
@@ -8,6 +9,16 @@ import os
 app = Flask(__name__)
 
 DB_NAME = 'pesquisa.db'
+
+opcoes_do_dia = [
+    'arroz',
+    'carne',
+    'frango',
+    'peixe',
+    'feijao',
+    'salada',
+    'macarrao'
+]
 
 def init_db():
     """Cria o banco de dados e a tabela se não existirem."""
@@ -91,6 +102,12 @@ def dashboard():
         'total': total,
         'q1_gostei': sum(1 for r in respostas_hoje if r['q1'] == 'gostei'),
         'q1_nao_gostei': sum(1 for r in respostas_hoje if r['q1'] == 'nao_gostei'),
+
+        'q2_gostei': sum(1 for r in respostas_hoje if r['q2'] == 'gostei'),
+        'q2_nao_gostei': sum(1 for r in respostas_hoje if r['q2'] == 'nao_gostei'),
+
+        'q3_gostei': sum(1 for r in respostas_hoje if r['q3'] == 'gostei'),
+        'q3_nao_gostei': sum(1 for r in respostas_hoje if r['q3'] == 'nao_gostei'),
         
         'q4_comi_tudo': sum(1 for r in respostas_hoje if r['q4'] == 'comi_tudo'),
         'q4_comi_pouco': sum(1 for r in respostas_hoje if r['q4'] == 'comi_pouco'),
@@ -100,10 +117,23 @@ def dashboard():
         'rejeicoes': {}
     }
 
+    contagem_rejeicoes = defaultdict(int)
+
+    for opcao in opcoes_do_dia:
+        contagem_rejeicoes[opcao] = 0
+
     for r in respostas_hoje:
         item_rejeitado = r['q6']
         if item_rejeitado and item_rejeitado != 'nenhuma':
-            metricas['rejeicoes'][item_rejeitado] = metricas['rejeicoes'].get(item_rejeitado, 0) + 1
+            # Separa "Frango, Salada" em ["Frango", "Salada"]
+            itens = [item.strip() for item in item_rejeitado.split(',')]
+            for item in itens:
+                if item:
+                    contagem_rejeicoes[item] += 1
+
+    metricas['rejeicoes'] = {
+        item: qtd for item, qtd in contagem_rejeicoes.items() if qtd > 0
+    }
 
     return render_template('dashboard.html', metricas=metricas, data_hoje=datetime.now().strftime('%d/%m/%Y'))
 
