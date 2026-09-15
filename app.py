@@ -202,6 +202,15 @@ def exportar_csv():
         headers={"Content-Disposition": "attachment;filename=relatorio_pesquisa.csv"}
     )
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Endpoint para monitoramento de uptime."""
+    return jsonify({
+        "status": "online",
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "servico": "pesquisa_satisfacao"
+    }), 200
+
 
 if __name__ == '__main__':
     init_db()
