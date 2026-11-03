@@ -59,14 +59,22 @@ def login_required(f):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        senha_digitada = request.form.get('password')
+        # Captura tanto via JSON (Fetch) quanto via formulário comum
+        dados = request.get_json() if request.is_json else request.form
+        senha_digitada = dados.get('password', '').strip()
         
         if senha_digitada == TOTEM_PASSWORD:
             session.permanent = True
             session['logged_in'] = True
+            
+            if request.is_json:
+                return jsonify({"sucesso": True, "redirect": url_for('index')}), 200
             return redirect(url_for('index'))
         else:
+            if request.is_json:
+                return jsonify({"sucesso": False, "erro": "Senha incorreta"}), 401
             return render_template('login.html', erro="Senha incorreta")
+            
     return render_template('login.html')
 
 @app.route('/logout')
