@@ -1,0 +1,11 @@
+services:
+  totem_app:
+    build: .
+    container_name: totem_coree
+    restart: unless-stopped
+    env_file:             
+      - .env              
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "127.0.0.1:5005:5000"

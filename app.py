@@ -1,5 +1,6 @@
-from flask import Flask, request, jsonify, render_template, Response # type: ignore
+from flask import Flask, request, jsonify, render_template, Response, session, redirect, url_for # type: ignore
 from waitress import serve
+from functools import wraps
 import socket
 import sqlite3
 from datetime import datetime, timedelta
@@ -7,10 +8,20 @@ from collections import defaultdict
 import io
 import csv
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
 
-DB_NAME = 'pesquisa.db'
+# Configurações de Segurança puxadas do .env
+app.secret_key = os.environ.get('SECRET_KEY', 'chave_secreta_fallback')
+app.permanent_session_lifetime = timedelta(days=365) # Evita que o totem deslogue no meio do dia
+TOTEM_PASSWORD = os.environ.get('APP_PASSWORD', '12345').strip()
+
+# Garante que a pasta 'data' exista para o volume do Docker
+DB_DIR = 'data'
+os.makedirs(DB_DIR, exist_ok=True)
+DB_NAME = os.path.join(DB_DIR, 'pesquisa.db')
 
 opcoes_do_dia = [
     'arroz',
@@ -23,31 +34,53 @@ opcoes_do_dia = [
 ]
 
 def init_db():
-    """Cria o banco de dados e a tabela se não existirem."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Estrutura preparada para receber as 6 perguntas e a data/hora exata
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS respostas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             data_hora TEXT NOT NULL,
-            q1 TEXT,
-            q2 TEXT,
-            q3 TEXT,
-            q4 TEXT,
-            q5 TEXT,
-            q6 TEXT
+            q1 TEXT, q2 TEXT, q3 TEXT, q4 TEXT, q5 TEXT, q6 TEXT
         )
     ''')
     conn.commit()
     conn.close()
 
+# --- DECORADOR DE LOGIN ---
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('logged_in'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# --- ROTAS ---
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        senha_digitada = request.form.get('password')
+        
+        if senha_digitada == TOTEM_PASSWORD:
+            session.permanent = True
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', erro="Senha incorreta")
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def index():
-    """Rota que serve a interface do iPad."""
     return render_template('index.html')
 
 @app.route('/api/salvar_pesquisa', methods=['POST'])
+@login_required
 def salvar_pesquisa():
     """Rota que recebe o JSON do frontend e grava no SQLite."""
     dados = request.get_json()
@@ -79,9 +112,8 @@ def salvar_pesquisa():
 
     return jsonify({"status": "sucesso"}), 201
 
-# ... (mantenha os imports e o código anterior do app.py) ...
-
 @app.route('/dashboard')
+@login_required
 def dashboard():
     """Rota para visualizar os relatórios com filtros de data."""
     # Captura os parâmetros da URL
@@ -170,6 +202,7 @@ def dashboard():
     )
 
 @app.route('/exportar_csv')
+@login_required
 def exportar_csv():
     """Rota para gerar e baixar o arquivo CSV com todos os dados."""
     conn = sqlite3.connect(DB_NAME)
@@ -202,15 +235,10 @@ def exportar_csv():
         headers={"Content-Disposition": "attachment;filename=relatorio_pesquisa.csv"}
     )
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "online"}), 200
 
 if __name__ == '__main__':
     init_db()
-    
-    # Captura e exibe o IP local no terminal para facilitar o acesso no iPad
-    hostname = socket.gethostname()
-    ip_local = socket.gethostbyname(hostname)
-    print(f"✅ Servidor WSGI ativo!")
-    print(f"📱 Acesse no iPad através do link: http://{ip_local}:5000")
-    
-    # Inicia o servidor com 4 threads para lidar com múltiplas requisições
     serve(app, host='0.0.0.0', port=5000, threads=2)
