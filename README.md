@@ -1,54 +1,126 @@
-# Dashboard - Refeitório Escolar
+# Dashboard & Totem de Pesquisa de Satisfação - Refeitório Escolar
 
-Um sistema web leve e responsivo desenvolvido em Python (Flask) para coletar, armazenar e analisar o nível de satisfação das crianças em um refeitório, utilizando um iPad para a coleta de respostas.
+Um sistema web leve, responsivo e seguro desenvolvido em Python (Flask + Waitress) para coletar, armazenar e analisar o nível de satisfação das crianças em um refeitório escolar. O sistema foi projetado para rodar em um iPad (modo Totem / Kiosk em tela cheia) e conta com um painel administrativo com gráficos e exportação de relatórios.
 
 ## 🚀 Funcionalidades
 
-* **Coleta de Dados Estruturada:** Interface (API) preparada para receber as avaliações dos alunos via JSON e registrar no banco local com segurança.
-* **Dashboard Interativo e Visual:** Painel administrativo gerado com `Chart.js` para visualização das métricas de aprovação diárias ou semanais.
-* **Filtros de Período:** Visualize facilmente os dados do dia atual, últimos 7 dias, ou filtre por um intervalo de datas específico usando o calendário.
-* **Exportação de Dados (CSV):** Exporte todos os registros em formato CSV com codificação amigável (UTF-8 com BOM) para abertura perfeita no Microsoft Excel.
-* **Servidor Local de Alta Performance:** Utiliza o servidor WSGI `waitress` para operar com máxima eficiência e suporte a concorrência na rede local (Wi-Fi), garantindo estabilidade no uso pelos tablets.
+* **Totem de Coleta Interativo:** Interface lúdica com pictogramas/emojis grandes e navegação por timeline, otimizada para iPad e telas de toque.
+* **Autenticação e Segurança:** Proteção da aplicação e do painel por senha de acesso com sessão persistente via cookie assinado.
+* **Dashboard de Métricas:** Painel gerencial com suporte a gráficos (`Chart.js`) e filtros temporais (diário, semanal ou por intervalo customizado).
+* **Exportação CSV:** Download dos registros consolidados formatados para leitura direta no Microsoft Excel / Google Sheets (UTF-8 com BOM e delimitador `;`).
+* **Endpoint de Uptime / Health Check:** Rota `/health` pronta para integração com serviços de monitoramento (Uptime Kuma, n8n, etc.).
+* **Pronto para Produção em Docker:** Arquitetura isolada via Docker e Docker Compose com servidor WSGI `waitress` de alta performance.
+* **Persistência Segura de Dados:** Mapeamento de volume para garantir a integridade da base SQLite (`pesquisa.db`) entre reinícios do contêiner.
 
 ## 🛠️ Tecnologias Utilizadas
 
-* **Back-end:** Python, Flask, SQLite3
-* **Front-end:** HTML5, CSS3, JavaScript (Chart.js)
-* **Servidor WSGI:** Waitress
+* **Back-end:** Python 3.11, Flask, Waitress, `python-dotenv`
+* **Banco de Dados:** SQLite3
+* **Front-end:** HTML5, CSS3, JavaScript (Google Fonts Montserrat, Chart.js)
+* **Infraestrutura:** Docker, Docker Compose, Nginx (Proxy Reverso), Certbot (SSL)
 
-## ⚙️ Pré-requisitos
+---
 
-* Python 3.8 ou superior
-* Gerenciador de pacotes `pip`
+## ⚙️ Configuração do Ambiente (`.env`)
 
-## 📦 Como Instalar e Rodar o Projeto
+Antes de iniciar a aplicação, crie um arquivo chamado `.env` na raiz do projeto com as seguintes chaves de configuração:
 
-1. Clone este repositório ou faça o download dos arquivos.
-2. Abra o terminal na pasta raiz do projeto.
-3. (Opcional, porém recomendado) Crie e ative um ambiente virtual:
+```env
+SECRET_KEY=sua_chave_criptografica_gerada
+APP_PASSWORD=sua_senha_de_acesso_ao_totem
+```
+
+> 💡 **Dica para gerar a `SECRET_KEY`:**  
+> Execute o seguinte comando no terminal para criar uma chave aleatória forte:
+> ```bash
+> python -c "import secrets; print(secrets.token_hex(32))"
+> ```
+
+---
+
+## 🐳 Execução via Docker (Recomendado)
+
+### Pré-requisitos
+* Docker instalado
+* Docker Compose (V2)
+
+### Passo a Passo
+
+1. Garanta que o arquivo `.env` esteja preenchido.
+2. Suba o contêiner em segundo plano:
+   ```bash
+   docker compose up -d --build
+   ```
+3. O contêiner subirá isolado na porta **5005** do host local (`127.0.0.1:5005`), pronto para ser consumido pelo Nginx.
+
+---
+
+## 🌐 Configuração do Proxy Reverso (Nginx)
+
+Para expor a aplicação com HTTPS sob o subdomínio `totem.coreeschool.com.br`, adicione o seguinte bloco de configuração ao seu Nginx (ex: `/etc/nginx/sites-available/totem.coreeschool.com.br`):
+
+```nginx
+server {
+    listen 80;
+    server_name totem.coreeschool.com.br;
+
+    location / {
+        proxy_pass http://127.0.0.1:5005;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Após recarregar o Nginx (`sudo systemctl reload nginx`), gere o certificado SSL com o Certbot:
+```bash
+sudo certbot --nginx -d totem.coreeschool.com.br
+```
+
+---
+
+## 💻 Desenvolvimento / Execução Local Sem Docker
+
+Caso prefira rodar diretamente na sua máquina local para desenvolvimento:
+
+1. Crie e ative um ambiente virtual Python:
    ```bash
    python -m venv venv
-   # Ativação no Linux/macOS:
+   # Linux/macOS:
    source venv/bin/activate
-   # Ativação no Windows:
+   # Windows:
    venv\Scripts\activate
    ```
-4. Instale as dependências contidas no arquivo `requirements.txt`:
+2. Instale as dependências:
    ```bash
    pip install -r requirements.txt
    ```
-5. Inicie o servidor da aplicação:
+3. Inicie o servidor:
    ```bash
    python app.py
    ```
-6. O terminal exibirá o endereço IP da sua máquina na rede local (exemplo: `http://192.168.0.x:5000`).
-7. Conecte o iPad na **mesma rede Wi-Fi** e acesse esse endereço pelo navegador (Safari/Chrome).
+4. Acesse no navegador: `http://localhost:5000` ou pelo IP local exibido no terminal.
+
+---
 
 ## 🗂️ Estrutura do Projeto
 
-* `app.py` - Lógica principal de rotas, API, banco de dados e inicialização WSGI.
-* `templates/index.html` - Interface de usuário servida para o iPad responder às perguntas (a ser incluída).
-* `templates/dashboard.html` - Interface visual de dados e gráficos.
-* `requirements.txt` - Dependências essenciais do projeto.
-* `pesquisa.db` - Banco de dados local SQLite (gerado automaticamente na primeira execução).
-
+```text
+pesquisa_satisfacao/
+├── app.py                  # Servidor Flask/Waitress, rotas, autenticação e API
+├── Dockerfile              # Imagem base Python 3.11 slim
+├── docker-compose.yml      # Mapeamento de volume e porta (5005 -> 5000)
+├── requirements.txt        # Dependências (Flask, Waitress, python-dotenv)
+├── .env                    # Variáveis de ambiente (ignorado no Git)
+├── data/                   # Pasta persistida via volume
+│   └── pesquisa.db         # Banco de dados SQLite
+├── static/
+│   └── img/
+│       └── logo.png        # Logo exibido na interface do totem
+└── templates/
+    ├── index.html          # Form de pesquisa (iPad / Kiosk)
+    ├── dashboard.html      # Painel de relatórios e métricas
+    └── login.html          # Tela de acesso autenticado
+```
